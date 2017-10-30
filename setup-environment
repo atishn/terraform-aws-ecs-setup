@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Quick and dirty wrapper script to get an AWS session token when MFA
+# is required.  Requires the AWS CLI and jq. Also unlocks the secrets and
+# stores them in the environment.
+# Install dependencies:
+#   On Debian/Ubuntu:
+#     > apt-get install jq
+#     > pip install --upgrade --user awscli
+#   On OS X:
+#     > brew install jq awscli
+# Inputs:
+#     - An AWS IAM profile
+#     - An MFA device generating TOTP codes.
+# To run this script:
+#     > eval $(./setup-environment)
+
+# Add secrets
+TOPLEVEL_DIR=$(git rev-parse --show-toplevel)
+
+AWS_ACCOUNT_ID=876208251118
+
+# Get rid of existing token
+unset AWS_SESSION_TOKEN
+
+if [ "" = "$AWS_IAM_LOGIN" ]; then
+    read -p "AWS IAM login: " AWS_IAM_LOGIN
+fi
+
+# GET OTP
+read -p "MFA OTP code: " CODE
+JSON=$(aws sts get-session-token \
+    --profile workshop-hub \
+    --serial-number arn:aws:iam::${AWS_ACCOUNT_ID}:mfa/${AWS_IAM_LOGIN} \
+    --token-code ${CODE})
+echo "export AWS_ACCESS_KEY_ID=$(echo ${JSON} | jq '.Credentials.AccessKeyId')"
+echo "export AWS_SECRET_ACCESS_KEY=$(echo ${JSON} | jq '.Credentials.SecretAccessKey')"
+echo "export AWS_SESSION_TOKEN=$(echo ${JSON} | jq '.Credentials.SessionToken')"
